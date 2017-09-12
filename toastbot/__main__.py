@@ -1,14 +1,21 @@
 import collections
+import logging
 
 import discord.ext.commands as commands
 
 import toastbot.configuration as botconf
+import toastbot.defaultlogger as logger
 from toastbot import botfunctions as diceroller
 
 
-DEFAULT_CONFIG_LOCATION = "configuration/api_keys.txt"
+DEFAULT_API_CREDENTIALS_LOCATION = "configuration/api_keys.txt"
+DEFAULT_CONFIG_LOCATION = "configuration/config.txt"
+
 DEFAULT_BOT_TOKEN_SECTION = 'discord'
 DEFAULT_BOT_TOKEN_VALUE_NAME = 'BotToken'
+
+DEFAULT_LOGGING_SECTION = 'logging'
+DEFAULT_LOG_LEVEL_VALUE_NAME = 'LogLevel'
 
 
 def _monospace_message(str):
@@ -61,24 +68,36 @@ def _create_long_roll_response(roll_results, author_name):
     return result_msg
 
 
+def init_logging():
+    config = botconf.read_api_configuration(DEFAULT_CONFIG_LOCATION)
+    logging_level_setting = config[DEFAULT_LOGGING_SECTION][DEFAULT_LOG_LEVEL_VALUE_NAME]
+    logging_level = logger.LOG_LEVEL_MAP[logging_level_setting]
+    logger.init_logging(level=logging_level)
+    logging.info('Logging initialized, level: {}'.format(logging_level_setting))
+
+
 def main():
+    init_logging()
+
     bot_prefix = "!"
+    logging.debug('Bot prefix set to: {}'.format(bot_prefix))
+    logging.info('Initializing Discord Bot...')
     bot = commands.Bot(command_prefix=bot_prefix, pm_help=True)
+    logging.info('Initializing Dicebot...')
     dice = diceroller.Dicebot()
 
     @bot.event
     async def on_ready():
-        print("Bot Online!")
-        print("Dicebot configuration:")
-        print(dice.command_parser.config.permitted_operations)
-        print(dice.command_parser._command_parsing_regex)
+        logging.info("Bot online!")
 
     @bot.command(pass_context=True)
     async def test(context):
         author = context.message.author
+        logging.info('Bot received test command from {}'.format(author))
 
         msg_text = "\nAuthor: {author}\nBot is online.".format(author=author.display_name)
         msg_text = _monospace_message(msg_text)
+        logging.info('Bot responded to test command.')
         await bot.say(content=msg_text)
 
     help_roll = ("- Roll dice: !roll <i>d<j>[+-][k] - type !help roll for more details.\n"
@@ -92,6 +111,7 @@ def main():
     @bot.command(pass_context=True, help=help_roll)
     async def roll(context):
         author = context.message.author
+        logging.info('Bot received roll command from {}.'.format(author))
         try:
             results = dice.roll(context.message.content)
             msg_text = _create_roll_response(results, author.display_name)
@@ -100,10 +120,13 @@ def main():
                 context.message.content
             )
         msg_text = _monospace_message(msg_text)
+        logging.info('Bot responded to roll command.')
         await bot.say(content=msg_text)
 
-    config = botconf.read_configuration(DEFAULT_CONFIG_LOCATION)
+    logging.info('Retrieving API details...')
+    config = botconf.read_api_configuration(DEFAULT_API_CREDENTIALS_LOCATION)
     token = config[DEFAULT_BOT_TOKEN_SECTION][DEFAULT_BOT_TOKEN_VALUE_NAME]
+    logging.info('Running bot...')
     bot.run(token)
 
 if __name__ == "__main__":
