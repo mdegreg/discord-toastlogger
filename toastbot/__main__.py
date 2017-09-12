@@ -1,7 +1,15 @@
 import collections
 import logging
 
-import discord.ext.commands as commands
+try:
+    import discord.ext.commands as commands
+except ImportError:
+    import pip
+    import importlib
+    pip.main(['install', 'discord'])
+    import discord.ext.commands as commands
+finally:
+    globals()['discord'] = importlib.import_module('discord')
 
 import toastbot.configuration as botconf
 import toastbot.defaultlogger as logger
