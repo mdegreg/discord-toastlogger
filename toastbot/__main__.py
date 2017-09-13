@@ -1,15 +1,21 @@
 import collections
 import logging
+import asyncio
+import importlib
+import pip
 
 try:
+    import discord
     import discord.ext.commands as commands
 except ImportError:
-    import pip
-    import importlib
+    print('Installing discord package...')
     pip.main(['install', 'discord'])
+    import discord
     import discord.ext.commands as commands
 finally:
+    print('Importing discord package...')
     globals()['discord'] = importlib.import_module('discord')
+    globals()['commands'] = importlib.import_module('discord.ext.commands')
 
 import toastbot.configuration as botconf
 import toastbot.defaultlogger as logger
@@ -95,18 +101,20 @@ def main():
     dice = diceroller.Dicebot()
 
     @bot.event
-    async def on_ready():
+    @asyncio.coroutine
+    def on_ready():
         logging.info("Bot online!")
 
     @bot.command(pass_context=True)
-    async def test(context):
+    @asyncio.coroutine
+    def test(context):
         author = context.message.author
         logging.info('Bot received test command from {}'.format(author))
 
         msg_text = "\nAuthor: {author}\nBot is online.".format(author=author.display_name)
         msg_text = _monospace_message(msg_text)
         logging.info('Bot responded to test command.')
-        await bot.say(content=msg_text)
+        yield from bot.say(content=msg_text)
 
     help_roll = ("- Roll dice: !roll <i>d<j>[+-][k] - type !help roll for more details.\n"
                  "i = # of dice\n"
@@ -117,7 +125,8 @@ def main():
                  )
 
     @bot.command(pass_context=True, help=help_roll)
-    async def roll(context):
+    @asyncio.coroutine
+    def roll(context):
         author = context.message.author
         logging.info('Bot received roll command from {}.'.format(author))
         try:
@@ -129,7 +138,7 @@ def main():
             )
         msg_text = _monospace_message(msg_text)
         logging.info('Bot responded to roll command.')
-        await bot.say(content=msg_text)
+        yield from bot.say(content=msg_text)
 
     logging.info('Retrieving API details...')
     config = botconf.read_api_configuration(DEFAULT_API_CREDENTIALS_LOCATION)
