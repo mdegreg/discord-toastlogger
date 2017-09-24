@@ -4,6 +4,9 @@ import asyncio
 import importlib
 import pip
 
+import toastbot.toast as toast
+
+
 try:
     import discord
     import discord.ext.commands as commands
@@ -96,7 +99,7 @@ def main():
     bot_prefix = "!"
     logging.debug('Bot prefix set to: {}'.format(bot_prefix))
     logging.info('Initializing Discord Bot...')
-    bot = commands.Bot(command_prefix=bot_prefix, pm_help=True)
+    bot = toast.ToastBot(command_prefix=bot_prefix, pm_help=True)
     logging.info('Initializing Dicebot...')
     dice = diceroller.Dicebot()
 
@@ -145,6 +148,7 @@ def main():
     token = config[DEFAULT_BOT_TOKEN_SECTION][DEFAULT_BOT_TOKEN_VALUE_NAME]
     logging.info('Running bot...')
     bot.run(token)
+    logging.info('Script finished.')
 
 if __name__ == "__main__":
     main()
