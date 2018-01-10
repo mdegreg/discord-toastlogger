@@ -12,11 +12,17 @@ DEFAULT_MAX_SIDES = 1000
 DEFAULT_MAX_MODIFIER = 1000
 
 
-class DiceRollCommandError(ValueError):
+class DiceRollError(ValueError):
+    """
+    This error should be used if there is a general error in execution of the dice roll.
+    """
     pass
 
 
-class DiceRollFormatError(ValueError):
+class DiceRollFormatError(DiceRollError):
+    """
+    This error is used if there is a misformatted or otherwise unparseable error.
+    """
     pass
 
 
@@ -76,24 +82,24 @@ class CommandParser:
             exception_msg = "Error: Specified roll modifier is too large. Requested: {}, maximum is {}.".format(
                 command.modifier, self.config.max_modifier
             )
-            raise DiceRollCommandError(exception_msg)
+            raise DiceRollError(exception_msg)
         elif command.roll_operation is not None and command.roll_operation not in self.config.permitted_operations:
             #  Provide standard initial output string for error.
             exception_msg = "Error: Specified modifier operation is unsupported.\nSupported operations: {}".format(
                 self.config.permitted_operations
             )
-            raise DiceRollCommandError(exception_msg)
+            raise DiceRollError(exception_msg)
 
         elif command.num_dice > self.config.max_num_dice:
             exception_msg = "Error: Specified number of dice is too large. Requested: {}, maximum is {}.".format(
                 command.num_dice, self.config.max_num_dice
             )
-            raise DiceRollCommandError(exception_msg)
+            raise DiceRollError(exception_msg)
         elif command.num_sides > self.config.max_num_sides:
             exception_msg = "Error: Specified size of dice is too large. Requested: {}, maximum is {}.".format(
                 command.num_sides, self.config.max_num_sides
             )
-            raise DiceRollCommandError(exception_msg)
+            raise DiceRollError(exception_msg)
         else:
             logging.info('Command passed validation checks.')
             pass
@@ -153,7 +159,7 @@ class Dicebot:
             modified_value = value - modifier
             logging.debug('Subtracting modifier.')
         else:
-            raise DiceRollCommandError("Unsupported modifier type received. Modifier sign: {}".format(roll_operation))
+            raise DiceRollError("Unsupported modifier type received. Modifier sign: {}".format(roll_operation))
         logging.debug('Returning modified results.')
         return modified_value
 

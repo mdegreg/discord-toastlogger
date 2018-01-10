@@ -22,7 +22,9 @@ finally:
 
 import toastbot.configuration as botconf
 import toastbot.defaultlogger as logger
-from toastbot import botfunctions as diceroller
+
+import toastbot.botfunctions.diceroller as diceroller
+import toastbot.botfunctions.logbot as logbot
 
 
 DEFAULT_API_CREDENTIALS_LOCATION = "configuration/api_keys.txt"
@@ -103,6 +105,9 @@ def main():
     logging.info('Initializing Dicebot...')
     dice = diceroller.Dicebot()
 
+    engine = logbot.initialize_engine()
+    session = logbot.create_session(engine)
+
     @bot.event
     @asyncio.coroutine
     def on_ready():
@@ -142,6 +147,106 @@ def main():
         msg_text = _monospace_message(msg_text)
         logging.info('Bot responded to roll command.')
         yield from bot.say(content=msg_text)
+
+    help_startlog = (
+        "- Start logging: !startlog <log name>-<Name 1>-<Name 2>-...-<Name N>\n"
+        "Start logging by naming the log, and adding the displayed names of players.\n"
+        "The log name will be used to end the log at the end of the event."
+    )
+
+    @bot.command(pass_context=True, help=help_startlog)
+    @asyncio.coroutine
+    def startlog(context):
+        logging.info('Initializing log...')
+        command = context.message.content
+        split_command = command.split(' ')
+        try:
+            command_contents = split_command[1]
+            command_params = command_contents.split('-')
+            command_log_name = command_params[0]
+            command_characters = command_params[1:]
+        except IndexError:
+            error_msg = 'Error: Not all parameters specified for log start. Use !help startlog for more info.'
+            yield from bot.say(content=error_msg)
+        else:
+            log_initialized_timestamp = context.message.timestamp
+
+            initialized_info_string = 'Started log {} at {}\nCharacters: {}.'.format(
+                command_log_name, log_initialized_timestamp, '; '.join(command_characters))
+            logging.info(initialized_info_string)
+            created_session = logbot.create_session(engine)
+            logbot.add_log(created_session, command_log_name, log_initialized_timestamp)
+            log_id = logbot.get_log_id(created_session, command_log_name, log_initialized_timestamp)
+            for name in command_params[1:]:
+                logging.info('Found names in command: {}'.format('; '.join(command_characters)))
+                try:
+                    logbot.LogSessionConfigs.add_log_to_user(name, log_id)
+                except KeyError:
+                    logbot.LogSessionConfigs.add_user(name)
+                    logbot.LogSessionConfigs.add_log_to_user(name, log_id)
+            yield from bot.say(content=initialized_info_string)
+
+
+    @bot.listen('on_message')
+    @asyncio.coroutine
+    def listen_for_text(message):
+        try:
+            author_name = message.author.nick if message.author.nick is not None else message.author.name
+        except AttributeError:
+            author_name = message.author.name
+        logging.info('Heard message from {}.'.format(author_name))
+        if author_name in logbot.LogSessionConfigs.active_logs:
+            logging.info('User in active log.')
+            created_session = logbot.create_session(engine)
+            for log_id in logbot.LogSessionConfigs.active_logs[author_name]:
+                created_session = logbot.add_new_text(
+                    session=created_session,
+                    timestamp=message.timestamp,
+                    character_name=author_name,
+                    username=message.author.name,
+                    text=message.content,
+                    log_id=log_id
+                )
+
+    help_endlog = (
+        "- End logging: !endlog <log name>-<Name 1>-<Name 2>-...-<Name N>\n"
+        "End the log with this command."
+    )
+
+    @bot.command(pass_context=True, help=help_endlog)
+    @asyncio.coroutine
+    def endlog(context):
+        try:
+            log_name = context.message.content.split(' ')[1]
+            created_session = logbot.create_session(engine)
+        except IndexError:
+            yield from bot.say('Please specify name of log to end.')
+        else:
+            log_id = logbot.get_log_id(created_session, log_name)
+            for character in list(logbot.LogSessionConfigs.active_logs):
+                if len(logbot.LogSessionConfigs.active_logs[character]) == 1:
+                    del logbot.LogSessionConfigs.active_logs[character]
+                else:
+                    logbot.LogSessionConfigs.active_logs[character].remove(log_id)
+            ended_info_string = 'Ended log {name}.'.format(name=log_name)
+            logging.info(ended_info_string)
+            yield from bot.say(ended_info_string)
+
+    @bot.command(pass_context=True)
+    @asyncio.coroutine
+    def getlog(context):
+        requestor = context.message.author
+        try:
+            log_name = context.message.content.split(' ')[1]
+        except IndexError:
+            yield from bot.say('Please specify log to receive.')
+        else:
+            created_session = logbot.create_session(engine)
+            log_id = logbot.get_log_id(created_session, log_name)
+            responses = logbot.get_text(created_session, log_id)
+            full_text = [str(response) for response in responses]
+            full_text = '\n'.join(full_text)
+            yield from bot.send_message(requestor, full_text)
 
     logging.info('Retrieving API details...')
     config = botconf.read_api_configuration(DEFAULT_API_CREDENTIALS_LOCATION)

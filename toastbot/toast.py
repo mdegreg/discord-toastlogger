@@ -8,7 +8,13 @@ class ToastBot(commands.Bot):
         super().__init__(command_prefix, formatter, description, pm_help, ** options)
 
     @asyncio.coroutine
-    def close(self, force_close=False):
+    def close(self, force_close: bool=False):
+        """
+        Wrapped up to support autorecovery of connection.
+
+        :param force_close: Bool; if True, then bot will not auto-recover.
+        :return: None
+        """
         if force_close:
             for extension in tuple(self.extensions):
                 try:

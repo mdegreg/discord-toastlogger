@@ -1,5 +1,7 @@
 # API Key reference
 *api_keys.txt
+*.db
+data/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
